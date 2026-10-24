@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<h1 class="text-xl font-bold mb-4">{{ request_business.name }} — Dashboard</h1>
+
+<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+  <div class="bg-white border rounded-lg p-4">
+    <p class="text-sm text-slate-500">Fiscal mode</p>
+    <p class="text-lg font-semibold">{{ request_business.get_fiscal_mode_display }}</p>
+    <p class="text-xs text-slate-400 mt-1">Modules (sales, stock, leads, advisor…) arrive in the next build steps.</p>
+  </div>
+  <div class="bg-white border rounded-lg p-4">
+    <p class="text-sm text-slate-500">Currency</p>
+    <p class="text-lg font-semibold">{{ request_business.default_currency }}</p>
+  </div>
+  <div class="bg-white border rounded-lg p-4">
+    <p class="text-sm text-slate-500">VAT registered</p>
+    <p class="text-lg font-semibold">{{ request_business.vat_registered|yesno:"Yes,No" }}</p>
+  </div>
+</div>
+
+<h2 class="font-semibold mt-8 mb-2">Recent audit log</h2>
+<div class="bg-white border rounded-lg divide-y">
+  {% for entry in recent_audit %}
+    <div class="px-4 py-2 text-sm">
+      <span class="font-mono text-xs text-slate-400">{{ entry.created_at }}</span>
+      <span class="ml-2 font-medium">{{ entry.action }}</span>
+      {% if entry.actor %}<span class="text-slate-500">by {{ entry.actor.email }}</span>{% endif %}
+    </div>
+  {% empty %}
+    <div class="px-4 py-3 text-sm text-slate-500">No audited actions yet.</div>
+  {% endfor %}
+</div>
+{% endblock %}

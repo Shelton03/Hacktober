@@ -1,0 +1,26 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+uv.lock
+
+# --- Local state / secrets ---
+.env
+db.sqlite3
+*.sqlite3
+
+# --- Fiscal device certificates & private keys (NEVER commit) ---
+certs/
+*.crt
+*.key
+*.pem
+
+# --- Media / generated files ---
+media/
+staticfiles/
+
+# --- OS / editor ---
+.DS_Store
+.idea/
+.vscode/

@@ -1,0 +1,68 @@
+# SME Business OS — full demo stack
+#   frontend (Angular + nginx)  → http://localhost:8080
+#   backend (Django API)        → http://localhost:8000/api/
+#
+# Run:  docker compose up --build
+# Demo logins are printed by seed_demo and listed in README.md.
+
+name: smebos
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: smebos
+      POSTGRES_USER: smebos
+      POSTGRES_PASSWORD: smebos
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U smebos -d smebos"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  backend:
+    build: .
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://smebos:smebos@db:5432/smebos
+      DB_HOST: db
+      ALLOWED_HOSTS: localhost,127.0.0.1,backend
+      SEED_DEMO: "${SEED_DEMO:-1}"
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    volumes:
+      - media:/app/media
+
+  qcluster:
+    build: .
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://smebos:smebos@db:5432/smebos
+      DB_HOST: db
+      ALLOWED_HOSTS: localhost,127.0.0.1,backend
+      SEED_DEMO: "0"
+    depends_on:
+      db:
+        condition: service_healthy
+    command: >
+      sh -c "until python -c \"import socket; socket.create_connection(('db', 5432), timeout=2)\" 2>/dev/null; do sleep 1; done
+             && python manage.py migrate --noinput
+             && exec python manage.py qcluster"
+    volumes:
+      - media:/app/media
+
+  frontend:
+    build: ./frontend
+    depends_on:
+      - backend
+    ports:
+      - "8080:80"
+
+volumes:
+  pgdata:
+  media:

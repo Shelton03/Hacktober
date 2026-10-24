@@ -1,0 +1,11 @@
+.git
+.venv
+venv
+node_modules
+frontend
+db.sqlite3
+*.sqlite3
+media
+staticfiles
+.DS_Store
+.env

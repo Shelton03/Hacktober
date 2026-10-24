@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="max-w-md mx-auto mt-10 bg-white border rounded-lg p-6 text-center">
+  <h1 class="text-xl font-bold mb-2">No business yet</h1>
+  <p class="text-sm text-slate-500 mb-4">Your account isn't a member of any business.</p>
+  <a href="{% url 'accounts:signup' %}" class="inline-block bg-blue-600 text-white rounded px-4 py-2 text-sm font-medium">Create a business</a>
+</div>
+{% endblock %}
