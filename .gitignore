@@ -1,26 +1,64 @@
-# --- Python ---
+# --- Python / Django ---
 __pycache__/
 *.py[cod]
+*$py.class
 .venv/
 venv/
-uv.lock
+env/
+.Python
+*.egg-info/
+.eggs/
+build/
+dist/python/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+celerybeat-schedule*
+*.log
 
-# --- Local state / secrets ---
+# --- Secrets / local state (NEVER commit) ---
 .env
+.env.*
+!.env.example
 db.sqlite3
 *.sqlite3
+*.sqlite3-journal
 
 # --- Fiscal device certificates & private keys (NEVER commit) ---
 certs/
 *.crt
 *.key
 *.pem
+*.p12
+*.pfx
 
-# --- Media / generated files ---
+# --- Media & generated files (runtime uploads, collected static) ---
 media/
 staticfiles/
+/media/
+/staticfiles/
+
+# --- Node / Angular ---
+node_modules/
+.angular/
+npm-debug.log*
+yarn-debug*
+yarn-error*
+frontend/dist/
+coverage/
 
 # --- OS / editor ---
 .DS_Store
+Thumbs.db
 .idea/
 .vscode/
+*.swp
+*.swo
+*~
+
+# --- Misc local ---
+tmp/
+temp/
+.direnv/

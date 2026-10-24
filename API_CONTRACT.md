@@ -1,4 +1,4 @@
-# API CONTRACT — SME Business OS (single source of truth)
+# API CONTRACT — Pfuma Mbiri (single source of truth)
 
 Read this before writing any backend or frontend code. The Angular frontend
 (`frontend/`) talks ONLY to these endpoints (Django REST Framework, session

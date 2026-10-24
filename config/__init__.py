@@ -1,1 +1,1 @@
-"""SME Business OS — Django project package."""
+"""Pfuma Mbiri — Django project package."""

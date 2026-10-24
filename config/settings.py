@@ -1,5 +1,5 @@
 """
-Settings for the SME Business OS.
+Settings for the Pfuma Mbiri.
 
 All secrets come from environment variables (loaded from .env via
 python-dotenv). Nothing secret is hard-coded here.
@@ -57,6 +57,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     # third-party
     "rest_framework",
+    "corsheaders",
     "django_q",
     # local
     "core",
@@ -74,6 +75,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -160,6 +162,22 @@ STORAGES = {
 # Browser origins allowed to post forms / AJAX (the Angular frontend)
 CSRF_TRUSTED_ORIGINS = [
     o for o in env_str("CSRF_TRUSTED_ORIGINS").split(",") if o
+]
+
+# CORS for the Angular dev server (Docker path is same-origin via nginx)
+CORS_ALLOWED_ORIGINS = CSRF_TRUSTED_ORIGINS
+CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_HEADERS = [
+    "accept",
+    "accept-encoding",
+    "authorization",
+    "content-type",
+    "dnt",
+    "origin",
+    "user-agent",
+    "x-csrftoken",
+    "x-requested-with",
+    "x-business-id",
 ]
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

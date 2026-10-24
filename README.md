@@ -1,4 +1,4 @@
-# SME Business OS 🇿🇼
+# Pfuma Mbiri 🇿🇼
 
 A working MVP of a business operating system for Zimbabwean SMEs — bookkeeping,
 sales, invoicing and **ZIMRA FDMS fiscalisation**, tax compliance, leads,
@@ -189,8 +189,20 @@ ROADMAP.md         phases 2-4
 
 ## Pricing tiers
 
-Free / Growth / Pro shown in-app with configurable limits (invoices per month,
-users, advisor frequency, report exports) and an upgrade prompt when reached.
+**Pfuma Mbiri** — Shona for *Wealth & Glory* (pfuma = wealth, mbiri = glory).
+
+Free tier plus two yearly licences, shown in-app with configurable limits:
+
+| | Free | Starter — $36/yr (~$3/mo) | Business — $120/yr (~$10/mo) |
+|---|---|---|---|
+| Invoices / month | 20 | 100 | Unlimited |
+| Users | 1 | 3 | 10 |
+| AI business advisor | Monthly summary | Weekly insights | Daily insights + forecasts |
+| Report exports (CSV/PDF) | — | ✓ | ✓ |
+| ZIMRA fiscal receipts | ✓ | ✓ | ✓ |
+| Support | Community | Email | Priority |
+
+Upgrade prompt appears when a limit is reached.
 
 ## Known limitations (MVP scope)
 

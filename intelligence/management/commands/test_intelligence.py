@@ -62,7 +62,7 @@ class Command(BaseCommand):
         # --- live call 1: basic connectivity ---
         prompt = (
             "Reply with exactly this sentence and nothing else: "
-            "SME Business OS intelligence layer online."
+            "Pfuma Mbiri intelligence layer online."
         )
         result = client.suggest(prompt)
         report["live"] = result.to_dict()

@@ -1,4 +1,4 @@
-# ROADMAP — SME Business OS (Zimbabwe)
+# ROADMAP — Pfuma Mbiri (Zimbabwe)
 
 **MVP (current):** SME layer — bookkeeping, sales/invoicing, ZIMRA fiscalisation
 (MOCK/TEST), tax compliance, leads, reminders, rule-based advisor, security

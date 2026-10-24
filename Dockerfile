@@ -1,4 +1,4 @@
-# SME Business OS backend — Django + DRF (served by gunicorn)
+# Pfuma Mbiri backend — Django + DRF (served by gunicorn)
 FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \

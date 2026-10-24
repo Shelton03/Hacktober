@@ -10,10 +10,10 @@ Design contract with the rest of the app:
   back to a deterministic template when disabled or on failure.
 - The client must be cheap to construct and safe to retry.
 
-Endpoint (express mode, API key):
-  POST https://aiplatform.googleapis.com/v1/publishers/google/models/{model}:generateContent
+Endpoint (default — Generative Language API, works with API keys):
+  POST https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent
   header: x-goog-api-key: $GOOGLE_API_KEY
-Project-pinned variant (when VERTEX_PROJECT is set):
+Project-pinned variant (when VERTEX_PROJECT is set — Vertex AI):
   POST https://{location}-aiplatform.googleapis.com/v1/projects/{project}/locations/{location}/publishers/google/models/{model}:generateContent
 """
 from __future__ import annotations
@@ -27,7 +27,7 @@ from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
-PUBLISHER_ENDPOINT = "https://aiplatform.googleapis.com/v1/publishers/google/models"
+GENLANG_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models"
 PROJECT_ENDPOINT = (
     "https://{location}-aiplatform.googleapis.com/v1/projects/{project}"
     "/locations/{location}/publishers/google/models"
@@ -89,7 +89,7 @@ class GemmaVertexClient:
             return PROJECT_ENDPOINT.format(
                 location=self.location, project=self.project, model=self.model
             )
-        return f"{PUBLISHER_ENDPOINT}/{self.model}:generateContent"
+        return f"{GENLANG_ENDPOINT}/{self.model}:generateContent"
 
     @property
     def configured(self) -> bool:
@@ -151,7 +151,13 @@ class GemmaVertexClient:
                     status_code=200, elapsed_s=elapsed,
                 )
             parts = candidates[0].get("content", {}).get("parts", [])
-            text = "".join(part.get("text", "") for part in parts).strip()
+            # thinking models emit reasoning parts flagged with "thought": true —
+            # keep only the final answer parts
+            text = "".join(
+                part.get("text", "")
+                for part in parts
+                if not part.get("thought", False)
+            ).strip()
             if not text:
                 finish = candidates[0].get("finishReason", "empty")
                 return LLMResult(

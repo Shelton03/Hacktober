@@ -3,14 +3,14 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}SME Business OS{% endblock %} · SME Business OS</title>
+  <title>{% block title %}Pfuma Mbiri{% endblock %} · Pfuma Mbiri</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="min-h-screen bg-slate-50 text-slate-900">
   {% if request.user.is_authenticated %}
   <header class="bg-white border-b border-slate-200">
     <div class="mx-auto max-w-6xl px-4 py-3 flex flex-wrap items-center gap-3">
-      <a href="{% url 'core:home' %}" class="font-bold text-slate-900">SME Business OS 🇿🇼</a>
+      <a href="{% url 'core:home' %}" class="font-bold text-slate-900">Pfuma Mbiri 🇿🇼</a>
       {% if request_business %}
         <span class="text-sm text-slate-500">|</span>
         <span class="text-sm font-medium">{{ request_business.name }}</span>

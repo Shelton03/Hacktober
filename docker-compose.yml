@@ -1,4 +1,4 @@
-# SME Business OS — full demo stack
+# Pfuma Mbiri — full demo stack
 #   frontend (Angular + nginx)  → http://localhost:8080
 #   backend (Django API)        → http://localhost:8000/api/
 #

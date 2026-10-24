@@ -1,4 +1,4 @@
-# SME Business OS frontend — Angular build → nginx serve (SPA + API proxy)
+# Pfuma Mbiri frontend — Angular build → nginx serve (SPA + API proxy)
 FROM node:20-alpine AS build
 
 WORKDIR /app

@@ -10,10 +10,10 @@ class UserAdmin(BaseUserAdmin):
     search_fields = ("email", "phone", "first_name", "last_name")
     ordering = ("email",)
     fieldsets = BaseUserAdmin.fieldsets + (
-        ("SME Business OS", {"fields": ("phone", "is_lender")}),
+        ("Pfuma Mbiri", {"fields": ("phone", "is_lender")}),
     )
     add_fieldsets = BaseUserAdmin.add_fieldsets + (
-        ("SME Business OS", {"fields": ("email", "phone", "is_lender")}),
+        ("Pfuma Mbiri", {"fields": ("email", "phone", "is_lender")}),
     )
 
 

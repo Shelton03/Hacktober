@@ -1,5 +1,5 @@
 #!/bin/sh
-# SME Business OS backend entrypoint: wait for DB → migrate → collectstatic →
+# Pfuma Mbiri backend entrypoint: wait for DB → migrate → collectstatic →
 # optional seed → exec the CMD (gunicorn).
 set -e
 

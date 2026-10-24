@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Django's command-line utility for the SME Business OS."""
+"""Django's command-line utility for the Pfuma Mbiri."""
 import os
 import sys
 
