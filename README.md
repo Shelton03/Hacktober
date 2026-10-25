@@ -82,7 +82,7 @@ python manage.py qcluster        # background jobs (reminders, fiscal sync)
 | `DATABASE_URL` | empty → SQLite; `postgres://…` in Docker |
 | `SEED_DEMO` | `1` auto-seed demo data on container start |
 | `GOOGLE_API_KEY` | Vertex AI API key for Gemma (intelligence layer) |
-| `GEMMA_MODEL` | default `gemma-3-27b-it` |
+| `GEMMA_MODEL` | default `gemma-4-31b-it` |
 | `VERTEX_PROJECT` / `VERTEX_LOCATION` | optional project-pinned endpoint (blank = express mode) |
 | `GEMMA_TIMEOUT` / `GEMMA_MAX_OUTPUT_TOKENS` | bounds per call; `0` tokens = uncapped |
 | `INTELLIGENCE_ENABLED` / `INTELLIGENCE_LLM_PHRASING` | feature flags; advisor works fully without any key |
