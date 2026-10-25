@@ -212,3 +212,15 @@ Upgrade prompt appears when a limit is reached.
 - WeasyPrint was swapped for ReportLab on this platform (same PDFs: A4 invoice
   + Receipt48 thermal with QR)
 - Any tax rule not confirmed above is configurable + flagged, not guessed
+
+## Contributing
+
+Issues and pull requests are welcome. Run the backend tests
+(`python manage.py test`) and the frontend build (`cd frontend && npm run build`)
+before opening a PR.
+
+## License
+
+Released under the [MIT License](LICENSE). Tax rates, due dates and FDMS
+behaviour in this project are estimates for demonstration; confirm anything
+you rely on with ZIMRA or a registered tax practitioner.
