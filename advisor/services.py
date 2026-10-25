@@ -32,7 +32,7 @@ def _llm_phrase(insight_data: dict, template_explanation: str) -> tuple[str, boo
             "You are rewriting a business-insight message for a Zimbabwean SME owner. "
             "Rewrite the message below in friendly, simple English. Maximum 3 sentences. "
             "Use ONLY the numbers given — do NOT add, change or invent any numbers. "
-            "Keep the recommended action.\n\n"
+            "Keep the recommended action. Do not use em dashes.\n\n"
             f"Title: {insight_data.get('title', '')}\n"
             f"Message: {template_explanation}\n"
             f"Action: {insight_data.get('recommended_action', '')}"
@@ -94,88 +94,51 @@ def insight_json(i) -> dict:
 # ── security self-assessment ───────────────────────────────
 
 def security_questions() -> list:
-    """12 questions, options with weights. Scores 0-100."""
-    return [
-        {"id": "1", "q": "Is your phone/SIM protected with a PIN and SIM-lock?",
-         "options": [{"v": "a", "t": "Yes, both", "w": 10}, {"v": "b", "t": "Only phone PIN", "w": 6},
-                     {"v": "c", "t": "No", "w": 0}]},
-        {"id": "2", "q": "Have you enabled two-step verification on your EcoCash/mobile money line?",
-         "options": [{"v": "a", "t": "Yes", "w": 10}, {"v": "b", "t": "No", "w": 0},
-                     {"v": "c", "t": "Not sure", "w": 3}]},
-        {"id": "3", "q": "Do you use a phone lock (PIN/pattern/fingerprint) on your business phone?",
-         "options": [{"v": "a", "t": "Yes", "w": 8}, {"v": "b", "t": "No", "w": 0}]},
-        {"id": "4", "q": "Do you share your business passwords with staff or family?",
-         "options": [{"v": "a", "t": "No, never", "w": 10}, {"v": "b", "t": "Sometimes", "w": 4},
-                     {"v": "c", "t": "Yes", "w": 0}]},
-        {"id": "5", "q": "Do you back up your business records (book, phone, or cloud)?",
-         "options": [{"v": "a", "t": "Regularly", "w": 10}, {"v": "b", "t": "Rarely", "w": 5},
-                     {"v": "c", "t": "Never", "w": 0}]},
-        {"id": "6", "q": "Where do you store customer data?",
-         "options": [{"v": "a", "t": "In Pfuma Mbiri only", "w": 10},
-                     {"v": "b", "t": "Notebook + app", "w": 7},
-                     {"v": "c", "t": "Anywhere/random", "w": 0}]},
-        {"id": "7", "q": "Do staff have their own logins with limited access?",
-         "options": [{"v": "a", "t": "Yes", "w": 10}, {"v": "b", "t": "They use mine", "w": 0}]},
-        {"id": "8", "q": "Can you spot a phishing SMS/email asking for your PIN?",
-         "options": [{"v": "a", "t": "Yes, always delete them", "w": 10},
-                     {"v": "b", "t": "Sometimes", "w": 5}, {"v": "c", "t": "Not sure", "w": 2}]},
-        {"id": "9", "q": "Is your WhatsApp/email account protected with two-step verification?",
-         "options": [{"v": "a", "t": "Yes", "w": 8}, {"v": "b", "t": "No", "w": 0}]},
-        {"id": "10", "q": "Do you check your mobile money statement for unknown transactions?",
-         "options": [{"v": "a", "t": "Weekly or more", "w": 8}, {"v": "b", "t": "Rarely", "w": 3},
-                     {"v": "c", "t": "Never", "w": 0}]},
-        {"id": "11", "q": "Is your Wi-Fi router password protected and changed from default?",
-         "options": [{"v": "a", "t": "Yes", "w": 8}, {"v": "b", "t": "Default password", "w": 2},
-                     {"v": "c", "t": "No Wi-Fi", "w": 8}]},
-        {"id": "12", "q": "Do you have a plan if your phone is lost or stolen?",
-         "options": [{"v": "a", "t": "Yes, written down", "w": 8},
-                     {"v": "b", "t": "Rough idea", "w": 4}, {"v": "c", "t": "No", "w": 0}]},
-    ]
+    """12 questions, options with weights. Content lives in advisor.security."""
+    from advisor import security
+
+    return security.public_questions()
 
 
-def score_security(answers: dict) -> dict:
-    questions = security_questions()
-    total_weight = 0
-    score = 0
-    misses = []
-    for q in questions:
-        opts = {o["v"]: o for o in q["options"]}
-        chosen = opts.get(answers.get(q["id"], ""))
-        if not chosen:
-            misses.append(q["q"])
-            continue
-        total_weight += max(o["w"] for o in q["options"])
-        score += chosen["w"]
-    final = round(score / total_weight * 100) if total_weight else 0
-    fixes = []
-    for q in questions:
-        opts = {o["v"]: o for o in q["options"]}
-        chosen = opts.get(answers.get(q["id"], ""))
-        if chosen and chosen["w"] < max(o["w"] for o in q["options"]) / 2:
-            fixes.append({"priority": "high" if chosen["w"] == 0 else "medium",
-                          "action": f"Fix: {q['q'].lower()}"})
-    return {"score": final, "fixes": fixes}
+def score_security(answers: dict, use_llm: bool | None = None) -> dict:
+    """Deterministic score + fixes + lessons, plus a (optionally AI) coaching note."""
+    from advisor import security
+
+    result = security.evaluate(answers)
+    result["coaching"], result["ai_generated"] = security.coaching(result, use_llm=use_llm)
+    return result
 
 
 # ── loan readiness ─────────────────────────────────────────
 
+LOAN_WEIGHTS = {
+    "data_completeness": 25,
+    "fiscalisation_consistency": 35,
+    "sales_stability": 20,
+    "compliance": 20,
+}
+
+
 def loan_health(business) -> dict:
-    """Business health: data completeness, fiscalisation, sales stability, compliance."""
-    from sales.models import FiscalReceipt, Sale
+    """Business health from the books. Each component is 0-100; the score is
+    their weighted average (LOAN_WEIGHTS) so the parts always explain the whole."""
+    from compliance.models import ComplianceIssue
+    from compliance.services import compliance_score
+    from sales.models import FiscalReceipt
 
     today = dj_tz.localdate()
-    # data completeness
-    has_products = business.products.filter(is_active=True).count()
-    has_customers = business.customers.count()
-    has_insights = Insight.objects.filter(business=business).count()
-    completeness = min(100, (10 if has_products else 0) + (10 if has_customers else 0)
-                      + (5 if has_insights else 0) + 25)
-    # fiscalisation consistency
+    # data completeness: the records a lender expects to see
+    completeness = (
+        (30 if business.products.filter(is_active=True).exists() else 0)
+        + (30 if business.customers.exists() else 0)
+        + (30 if business.expenses.exists() else 0)
+        + (10 if Insight.objects.filter(business=business).exists() else 0)
+    )
+    # fiscalisation consistency: share of sales carrying a fiscal receipt
     total_sales = business.sales.count()
     fiscalised = FiscalReceipt.objects.filter(device__business=business).count()
-    fiscal_share = fiscalised / total_sales if total_sales else 0
-    consistency = round(fiscal_share * 40)
-    # sales stability: monthly sales coefficient of variation (lower = stable)
+    consistency = round(min(1, fiscalised / total_sales) * 100) if total_sales else 0
+    # sales stability: monthly coefficient of variation over 6 months (lower = steadier)
     months = {}
     for s in business.sales.filter(date__gte=today - timedelta(days=180)):
         key = s.date.strftime("%Y-%m")
@@ -187,26 +150,22 @@ def loan_health(business) -> dict:
         if mean > 0:
             var = sum((v - mean) ** 2 for v in vals) / len(vals)
             cv = (var ** 0.5) / mean
-            stability = max(0, round((1 - min(cv, 1)) * 20))
-    # compliance
-    comp = 0
-    try:
-        from compliance.services import compliance_score
+            stability = round((1 - min(cv, 1)) * 100)
+    # compliance: the same score the Compliance page shows
+    comp = compliance_score(ComplianceIssue.objects.filter(business=business, status="active"))
 
-        cs = compliance_score(business)
-        comp = round((cs if cs is not None else 0) / 100 * 15)
-    except Exception:
-        pass
-    score = completeness + consistency + stability + comp
+    components = {
+        "data_completeness": completeness,
+        "fiscalisation_consistency": consistency,
+        "sales_stability": stability,
+        "compliance": comp,
+    }
+    score = round(sum(components[k] * w for k, w in LOAN_WEIGHTS.items()) / 100)
     band = "A" if score >= 85 else "B" if score >= 70 else "C" if score >= 55 else "D" if score >= 40 else "E"
     return {
-        "score": min(score, 100), "band": band,
-        "components": {
-            "data_completeness": completeness,
-            "fiscalisation_consistency": consistency,
-            "sales_stability": stability,
-            "compliance": comp,
-        },
+        "score": score, "band": band,
+        "components": components,
+        "weights": LOAN_WEIGHTS,
         "note": "Demo scoring from your books only — lenders see this only with your consent.",
     }
 

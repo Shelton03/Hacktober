@@ -216,13 +216,12 @@ def dashboard(business) -> dict:
     """The dashboard aggregate (contract: /api/dashboard/)."""
     from compliance.services import compliance_score
     from leads.models import Lead
+    from sales.reports import sales_trend
 
     today = dj_tz.localdate()
     refresh_overdue(business)
     month_start = today.replace(day=1)
     today_sales = sum((s.total for s in business.sales.filter(date=today, doc_type=Sale.DocType.SALE)), Decimal("0.00"))
-    month_sales = business.sales.filter(date__gte=month_start, doc_type=Sale.DocType.INVOICE).count() + \
-                 business.sales.filter(date__gte=month_start, doc_type=Sale.DocType.SALE).count()
     cash_in = sum((p.amount for p in Payment.objects.filter(sale__business=business, date__gte=month_start)), Decimal("0.00"))
     expenses_month = Decimal("0.00")
     try:
@@ -237,12 +236,14 @@ def dashboard(business) -> dict:
     cogs = Decimal("0.00")
     for line in SaleLine.objects.filter(sale__business=business, sale__date__gte=month_start, product__isnull=False).select_related("product"):
         cogs += line.product.cost_price * line.qty
-    month_profit = today_sales + Decimal(month_sales and 0) - cogs  # placeholder-ish; real calc below
     month_revenue = sum((s.total for s in business.sales.filter(date__gte=month_start)), Decimal("0.00"))
     month_profit = month_revenue - cogs - expenses_month
     try:
-        score = compliance_score(business)
+        from compliance.models import ComplianceIssue
+
+        score = compliance_score(ComplianceIssue.objects.filter(business=business, status="active"))
     except Exception:
+        logger.exception("dashboard: compliance score failed")
         score = None
     open_leads = Lead.objects.filter(business=business).exclude(stage__in=["won", "lost"]).count()
     next_tax = None
@@ -250,7 +251,7 @@ def dashboard(business) -> dict:
         from compliance.services import next_tax_due
         next_tax = next_tax_due(business)
     except Exception:
-        pass
+        logger.exception("dashboard: next tax due failed")
     top_insights = []
     try:
         from advisor.models import Insight
@@ -270,4 +271,6 @@ def dashboard(business) -> dict:
         "compliance_score": score,
         "open_leads": open_leads,
         "top_insights": top_insights,
+        "sales_trend": sales_trend(business),
+        "currency": "USD",
     }

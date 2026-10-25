@@ -3,6 +3,12 @@ import { Router } from '@angular/router';
 import { api } from './api';
 import type { User, LoginResponse } from './models';
 
+/** Where a user belongs after sign-in: lenders without a business → /lender. */
+export function homeFor(user: User | null | undefined): string {
+  if (!user) return '/login';
+  return user.is_lender && !user.businesses?.length ? '/lender' : '/dashboard';
+}
+
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private readonly _user = signal<User | null>(null);
@@ -10,6 +16,10 @@ export class AuthService {
   readonly loggedIn = computed(() => this._user() !== null);
   readonly businesses = computed(() => this._user()?.businesses ?? []);
   readonly isLender = computed(() => this._user()?.is_lender === true);
+  readonly home = computed(() => homeFor(this._user()));
+  readonly activeRole = computed(
+    () => this.businesses().find((b) => b.id === this.activeBusinessId())?.role ?? ''
+  );
   readonly activeBusinessName = computed(
     () => this.businesses().find((b) => b.id === this.activeBusinessId())?.name ?? ''
   );
@@ -36,9 +46,10 @@ export class AuthService {
     const bid = res.business_id ?? res.user?.business_id ?? res.businesses?.[0]?.id ?? null;
     if (bid) localStorage.setItem('sme.business_id', String(bid));
     this.activeBusinessId.set(bid);
-    this._user.set(res.user);
-    const target = res.user?.is_lender && !res.user?.businesses?.length ? '/lender' : '/dashboard';
-    await this.router.navigateByUrl(target);
+    // the login payload carries businesses at the top level, not on the user
+    const user: User = { ...res.user, businesses: res.businesses ?? res.user?.businesses ?? [] };
+    this._user.set(user);
+    await this.router.navigateByUrl(homeFor(user));
   }
 
   async loadMe(): Promise<User | null> {

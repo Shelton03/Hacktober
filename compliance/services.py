@@ -206,6 +206,35 @@ def vat_summary(business, period: str) -> dict:
     return result
 
 
+def next_tax_due(business) -> Optional[dict]:
+    """The soonest upcoming tax payment: {type, amount, due_date} or None.
+
+    Candidates: the open VAT return (VAT-registered only, skipped when it is a
+    refund position) and the next QPD instalment with a positive payment.
+    """
+    today = _local_today()
+    candidates = []
+
+    if getattr(business, "vat_registered", False):
+        # last month's return is due this month until the due day passes
+        prev = today.replace(day=1) - timedelta(days=1)
+        period = prev if today <= next_month_due(prev.year, prev.month) else today
+        vat = vat_summary(business, f"{period.year:04d}-{period.month:02d}")
+        if vat["vat_payable"] > ZERO:
+            candidates.append({"type": "VAT", "amount": vat["vat_payable"], "due_date": vat["due_date"]})
+
+    for q in qpd_schedule(business, today.year):
+        if q["due_date"] >= today and q["payment"] > ZERO:
+            candidates.append({"type": f"QPD Q{q['qtr']}", "amount": q["payment"], "due_date": q["due_date"]})
+            break
+
+    if not candidates:
+        return None
+    soonest = min(candidates, key=lambda c: c["due_date"])
+    return {"type": soonest["type"], "amount": str(soonest["amount"]),
+            "due_date": str(soonest["due_date"])}
+
+
 def _store_estimate(business, kind: str, period: str, amount: Decimal, due: date):
     """Persist/recompute a TaxEstimate (unique per business+kind+period)."""
     TaxEstimate.objects.update_or_create(
@@ -525,7 +554,7 @@ def export_rows(business, period: str) -> list[tuple]:
     ]
     for q in qpd:
         rows.append((
-            f"QPD Q{q['qtr']} ({q['percent']:g}% — due {q['due_date'].isoformat()})",
+            f"QPD Q{q['qtr']} ({q['percent']:g}%, due {q['due_date'].isoformat()})",
             f"{q['payment']:,.2f}",
         ))
     rows.append(("", ""))
@@ -559,11 +588,11 @@ def export_pdf(business, period: str) -> bytes:
         buffer, pagesize=A4,
         leftMargin=1.8 * cm, rightMargin=1.8 * cm,
         topMargin=1.8 * cm, bottomMargin=1.8 * cm,
-        title=f"Tax summary {period} — {business.name}",
+        title=f"Tax summary {period}: {business.name}",
     )
     styles = getSampleStyleSheet()
     story = [
-        Paragraph(f"Tax &amp; compliance summary — {business.name}", styles["Title"]),
+        Paragraph(f"Tax &amp; compliance summary: {business.name}", styles["Title"]),
         Paragraph(f"Period: {period}", styles["Normal"]),
         Spacer(1, 12),
     ]

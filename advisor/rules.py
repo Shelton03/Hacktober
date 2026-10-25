@@ -47,7 +47,7 @@ def rule_cash_flow_shortfall(business) -> dict | None:
             "code": "cash_flow_shortfall",
             "title": "Cash-flow warning: projected shortfall",
             "explanation": (f"Over the next 30 days you expect {cash_in:.2f} USD in, but have "
-                            f"{upcoming_expenses:.2f} USD expenses and {tax_due:.2f} USD tax due — "
+                            f"{upcoming_expenses:.2f} USD expenses and {tax_due:.2f} USD tax due: "
                             f"a projected shortfall of {abs(projected):.2f} USD."),
             "recommended_action": "Chase overdue invoices now, delay non-essential purchases, or arrange short-term cover.",
             "severity": "critical",
@@ -75,7 +75,7 @@ def rule_lapsed_customer(business) -> dict | None:
                 "title": f"Regular customer going quiet: {customer.name}",
                 "explanation": (f"{customer.name} bought {len(dates)} times, usually every {median} days, "
                                f"but hasn't purchased in {silent_days} days."),
-                "recommended_action": f"Send {customer.name} a friendly follow-up — a small discount or new-stock note works.",
+                "recommended_action": f"Send {customer.name} a friendly follow-up. A small discount or new-stock note works.",
                 "severity": "warning",
                 "data": {"customer": customer.id, "purchases": len(dates),
                          "median_interval": median, "silent_days": silent_days},
@@ -160,10 +160,10 @@ def rule_debtor_ageing(business) -> dict | None:
         return None
     return {
         "code": "debtor_ageing",
-        "title": f"{count} overdue invoice(s) — {sum(buckets.values()):.2f} USD owed to you",
+        "title": f"{count} overdue invoice(s): {sum(buckets.values()):.2f} USD owed to you",
         "explanation": (f"Overdue by age: 1-30 days {buckets['1-30']:.2f} USD, "
                         f"31-60 days {buckets['31-60']:.2f} USD, over 60 days {buckets['60+']:.2f} USD."),
-        "recommended_action": "Send reminders to the oldest buckets first — use the WhatsApp share link on each invoice.",
+        "recommended_action": "Send reminders to the oldest buckets first, using the WhatsApp share link on each invoice.",
         "severity": "warning" if buckets["60+"] else "info",
         "data": {k: str(v) for k, v in buckets.items()},
     }
@@ -190,7 +190,7 @@ def rule_lead_source_performance(business) -> dict | None:
         "title": f"Best lead source: {best[1]} ({best[4]}% conversion)",
         "explanation": "By source: " + "; ".join(
             f"{label} {won}/{total} ({pct}%, {value:.0f} USD won)" for _, label, total, won, pct, value in rows),
-        "recommended_action": f"Spend more effort on {best[1]} — it converts best.",
+        "recommended_action": f"Spend more effort on {best[1]}. It converts best.",
         "severity": "info",
         "data": {"rows": [[r[0], r[2], r[3], r[4], str(r[5])] for r in rows]},
     }

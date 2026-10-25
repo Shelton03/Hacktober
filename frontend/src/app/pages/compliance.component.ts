@@ -1,87 +1,147 @@
-import { Component, signal } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { api } from '../core/api';
-import type { ComplianceResponse } from '../core/models';
+import type { ComplianceIssue, ComplianceResponse } from '../core/models';
+import { IconComponent } from '../shared/icon.component';
+import { ScoreRingComponent } from '../shared/score-ring.component';
+import { severityClass, severityIcon, today } from '../shared/format';
+import { ToastService } from '../shared/toast.service';
 
 @Component({
   selector: 'app-compliance',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [FormsModule, RouterLink, IconComponent, ScoreRingComponent],
   template: `
     <div class="page">
       <div class="page-head">
         <div>
-          <h1>Tax &amp; Compliance</h1>
-          <p class="sub">Score, open issues and suggested fixes</p>
+          <h1>Compliance</h1>
+          <p class="sub">We scan your books for anything ZIMRA would flag, and tell you how to fix it.</p>
         </div>
-        <div class="row-actions">
-          <button class="btn ghost" (click)="exportCsv()">Export CSV</button>
-          <button class="btn ghost" (click)="exportPdf()">Export PDF</button>
+        <div class="page-actions">
+          <input type="month" [(ngModel)]="period" style="width:auto" aria-label="Export period" />
+          <button class="btn ghost" (click)="exportAs('csv')"><app-icon name="download" [size]="16" /> CSV</button>
+          <button class="btn ghost" (click)="exportAs('pdf')"><app-icon name="download" [size]="16" /> PDF</button>
         </div>
       </div>
 
-      @if (error()) {
-        <div class="alert error">{{ error() }}</div>
-      }
-
-      <div class="grid cols-2">
-        <div class="card" style="text-align:center">
-          <p class="stat-label">Compliance score</p>
-          <p class="score-ring" [class]="scoreClass">{{ data()?.score ?? '—' }}</p>
-          <p class="stat-sub">{{ issues().length }} open issue(s)</p>
-        </div>
-        <div class="card">
-          <h3>Next steps</h3>
-          <p class="muted">
-            Fix issues below to raise your score. See also
-            <a routerLink="/tax">Tax summaries</a>.
+      <div class="card overview">
+        <app-score-ring [score]="data()?.score" [size]="140" label="of 100" />
+        <div class="ov-text">
+          <h2>{{ verdict() }}</h2>
+          <p class="text-2" style="font-size:0.9rem">
+            Each open issue lowers your score: urgent −10, warning −5, info −2. A high score also improves your
+            <a routerLink="/loan">loan readiness</a>.
           </p>
+          <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:12px">
+            <span class="badge red dot">{{ count('critical') }} urgent</span>
+            <span class="badge amber dot">{{ count('warning') }} warnings</span>
+            <span class="badge teal dot">{{ count('info') }} info</span>
+          </div>
         </div>
       </div>
 
-      <h2 style="margin-top:16px">Issues</h2>
-      @for (i of issues(); track i.id) {
-        <div class="card issue" [class]="'sev-' + i.severity">
-          <div class="page-head">
-            <h3>
-              {{ i.title }}
-              <span class="badge" [class]="badgeClass(i.severity)">{{ i.severity }}</span>
-            </h3>
-            <button class="btn ghost small" (click)="dismiss(i)">Dismiss</button>
+      <div class="section-title"><h2>Open issues</h2></div>
+      <div class="stack">
+        @for (i of issues(); track i.id) {
+          <div class="card issue sev" [class]="'sev-' + i.severity">
+            <span class="i-ico" [class]="sevClass(i.severity)"><app-icon [name]="sevIcon(i.severity)" [size]="18" /></span>
+            <div style="flex:1;min-width:0">
+              <h3>{{ i.title }}</h3>
+              <p class="fix"><app-icon name="zap" [size]="14" /> {{ i.suggested_fix }}</p>
+            </div>
+            <button class="btn plain small" (click)="dismiss(i)">Dismiss</button>
           </div>
-          <p class="muted"><b>Fix:</b> {{ i.suggested_fix }}</p>
-        </div>
-      } @empty {
-        <div class="card"><div class="empty">No open compliance issues 🎉</div></div>
+        } @empty {
+          <div class="card empty">
+            <app-icon name="check-circle" [size]="30" [stroke]="1.5" />
+            <p>{{ loaded() ? 'No open compliance issues. Well done.' : 'Scanning your books…' }}</p>
+          </div>
+        }
+      </div>
+
+      @if (data()?.disclaimer) {
+        <p class="muted" style="margin-top:18px">{{ data()?.disclaimer }}</p>
       }
     </div>
   `,
   styles: [
     `
+      .overview {
+        display: flex;
+        gap: 28px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      .ov-text {
+        flex: 1;
+        min-width: 240px;
+      }
       .issue {
-        margin-bottom: 10px;
+        display: flex;
+        gap: 14px;
+        align-items: flex-start;
       }
-      .issue.sev-critical {
-        border-left: 4px solid #dc2626;
+      .i-ico {
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+        display: grid;
+        place-items: center;
+        flex: none;
       }
-      .issue.sev-warning {
-        border-left: 4px solid #f59e0b;
+      .i-ico.red {
+        background: var(--danger-soft);
+        color: var(--danger-ink);
       }
-      .issue.sev-info {
-        border-left: 4px solid #0f766e;
+      .i-ico.amber {
+        background: var(--accent-soft);
+        color: var(--accent-ink);
+      }
+      .i-ico.teal {
+        background: var(--primary-soft);
+        color: var(--primary-ink);
+      }
+      .fix {
+        display: flex;
+        gap: 6px;
+        align-items: flex-start;
+        font-size: 0.86rem;
+        color: var(--text-2);
+        margin-top: 6px;
+      }
+      .fix app-icon {
+        color: var(--accent);
+        margin-top: 3px;
       }
     `,
   ],
 })
-export class ComplianceComponent {
+export class ComplianceComponent implements OnInit {
+  private toast = inject(ToastService);
   data = signal<ComplianceResponse | null>(null);
-  error = signal('');
+  issues = signal<ComplianceIssue[]>([]);
+  loaded = signal(false);
+  period = today().slice(0, 7);
 
-  issues = signal(this.data()?.issues ?? []);
+  verdict = computed(() => {
+    const s = this.data()?.score;
+    if (s === undefined || s === null) return 'Checking your compliance…';
+    if (s >= 80) return 'You are in good standing';
+    if (s >= 50) return 'A few issues to tidy up';
+    return 'Action needed before your next return';
+  });
+
+  sevClass = severityClass;
+  sevIcon = severityIcon;
 
   ngOnInit(): void {
     this.load();
+  }
+
+  count(sev: string): number {
+    return this.issues().filter((i) => i.severity === sev).length;
   }
 
   async load(): Promise<void> {
@@ -90,37 +150,22 @@ export class ComplianceComponent {
       this.data.set(res);
       this.issues.set(res.issues ?? []);
     } catch (e: any) {
-      this.error.set(e?.message || 'Failed to load compliance');
+      this.toast.error(e?.message || 'Failed to load compliance');
+    } finally {
+      this.loaded.set(true);
     }
   }
 
-  get scoreClass(): string {
-    const s = this.data()?.score ?? 0;
-    if (s >= 80) return 'score-good';
-    if (s >= 50) return 'score-mid';
-    return 'score-bad';
-  }
-
-  badgeClass(sev: string): string {
-    if (sev === 'critical') return 'red';
-    if (sev === 'warning') return 'amber';
-    return 'teal';
-  }
-
-  async dismiss(issue: any): Promise<void> {
+  async dismiss(issue: ComplianceIssue): Promise<void> {
     try {
       await api.post(`/compliance/${issue.id}/dismiss/`);
-      this.issues.set(this.issues().filter((i) => i.id !== issue.id));
+      await this.load();
     } catch (e: any) {
-      this.error.set(e?.message || 'Dismiss failed');
+      this.toast.error(e?.message || 'Dismiss failed');
     }
   }
 
-  exportCsv(): void {
-    api.download('/compliance/export/?format=csv');
-  }
-
-  exportPdf(): void {
-    api.download('/compliance/export/?format=pdf');
+  exportAs(format: 'csv' | 'pdf'): void {
+    api.download(`/compliance/export/?period=${this.period}&format=${format}`);
   }
 }

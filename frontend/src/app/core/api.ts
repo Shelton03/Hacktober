@@ -3,7 +3,7 @@
 
 export const API_BASE = '/api';
 
-// When served by `ng serve` (localhost:4200) there is no nginx proxy — call Django directly.
+// When served by `ng serve` (localhost:4200) there is no nginx proxy, so call Django directly.
 const isDevServer = (): boolean => location.port === '4200' || location.port.startsWith('42');
 export const DEV_ORIGIN = 'http://localhost:8000';
 const BASE = (): string => (isDevServer() ? `${DEV_ORIGIN}/api` : API_BASE);
@@ -66,14 +66,30 @@ async function request<T>(
     } catch {
       /* no json body */
     }
-    const detail =
-      body && (body.detail || (typeof body === 'object' && Object.values(body)[0] as any));
-    throw new ApiError(res.status, typeof detail === 'string' ? detail : 'Request failed', body);
+    let detail: unknown = body && (body.detail ?? (typeof body === 'object' ? Object.values(body)[0] : null));
+    if (Array.isArray(detail)) detail = detail[0];
+    const fallback = res.status === 402 ? 'Plan limit reached. Upgrade to continue.' : `Request failed (${res.status})`;
+    throw new ApiError(res.status, typeof detail === 'string' ? detail : fallback, body);
   }
   if (res.status === 204) return undefined as T;
   const ct = res.headers.get('content-type') || '';
   if (ct.includes('application/json')) return (await res.json()) as T;
   return (await res.text()) as unknown as T;
+}
+
+/** Accept a bare array, a DRF page ({results}) or a wrapper object ({[key]: [...]}). */
+export function asList<T>(res: unknown, key?: string): T[] {
+  if (Array.isArray(res)) return res as T[];
+  const o = (res ?? {}) as Record<string, unknown>;
+  const v = (key && o[key]) ?? o['results'];
+  return Array.isArray(v) ? (v as T[]) : [];
+}
+
+/** Links opened in a new tab can't send X-Business-Id, so pass ?business=. */
+function withBusiness(path: string): string {
+  const bid = businessId();
+  if (!bid) return path;
+  return path + (path.includes('?') ? '&' : '?') + 'business=' + encodeURIComponent(bid);
 }
 
 export const api = {
@@ -83,10 +99,10 @@ export const api = {
   patch: <T>(path: string, body?: any) => request<T>('PATCH', path, { body }),
   del: <T>(path: string) => request<T>('DELETE', path),
   /** Full URL for a GET (PDF/CSV downloads opened in new tabs). */
-  url: (path: string) => BASE() + path,
-  /** Download helper: navigates with session cookie; business header via query fallback. */
+  url: (path: string) => BASE() + withBusiness(path),
+  /** Download helper: navigates with session cookie; business via ?business=. */
   download: (path: string) => {
-    window.open(BASE() + path, '_blank');
+    window.open(BASE() + withBusiness(path), '_blank', 'noopener');
   },
   BASE,
 };

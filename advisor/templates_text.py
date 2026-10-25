@@ -1,10 +1,10 @@
-"""Downloadable security templates — for guidance, not legal advice."""
+"""Downloadable security templates: for guidance, not legal advice."""
 
-DISCLAIMER = ("FOR GUIDANCE, NOT LEGAL ADVICE — confirm with a legal practitioner "
+DISCLAIMER = ("FOR GUIDANCE, NOT LEGAL ADVICE. Confirm with a legal practitioner "
               "familiar with the Cyber and Data Protection Act [Chapter 12:07] of Zimbabwe.\n")
 
 CONSENT_NOTICE = DISCLAIMER + """
-CUSTOMER DATA CONSENT NOTICE — [Business name]
+CUSTOMER DATA CONSENT NOTICE: [Business name]
 
 1. We collect your name, phone number, and purchase records to serve you and keep
    legally required business records.
@@ -16,7 +16,7 @@ CUSTOMER DATA CONSENT NOTICE — [Business name]
 """
 
 DATA_POLICY = DISCLAIMER + """
-BASIC DATA-HANDLING POLICY — [Business name]
+BASIC DATA-HANDLING POLICY: [Business name]
 
 1. Access: only [owner/accountant] may open the business system. Staff logins are
    separate and limited.

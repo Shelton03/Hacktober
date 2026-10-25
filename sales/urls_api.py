@@ -29,4 +29,6 @@ urlpatterns = [
     path("fiscal/close-day/", api.FiscalCloseDayView.as_view(), name="fiscal-close-day"),
     path("fiscal/receipts/", api.FiscalReceiptsView.as_view(), name="fiscal-receipts"),
     path("fiscal/sync-pending/", api.FiscalSyncPendingView.as_view(), name="fiscal-sync"),
+    # reports
+    path("reports/<slug:kind>/", api.ReportView.as_view(), name="reports"),
 ]

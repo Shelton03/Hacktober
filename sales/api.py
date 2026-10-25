@@ -11,7 +11,7 @@ from rest_framework.views import APIView
 
 from core.api_tenancy import get_business_or_403
 from core.models import log_action
-from sales import services
+from sales import reports, services
 from sales.fiscal_workflow import (
     close_day,
     fiscal_status,
@@ -399,3 +399,28 @@ class FiscalSyncPendingView(APIView):
         business = get_business_or_403(request)
         n = sync_pending_receipts(business)
         return Response({"ok": True, "synced": n})
+
+
+# ── reports ─────────────────────────────────────────────────
+
+class ReportView(APIView):
+    """GET /api/reports/<kind>/?from=YYYY-MM-DD&to=YYYY-MM-DD"""
+    permission_classes = [IsAuthenticated]
+    builders = {
+        "pnl": reports.pnl,
+        "sales-by-product": reports.sales_by_product,
+        "sales-by-customer": reports.sales_by_customer,
+        "expenses-by-category": reports.expenses_by_category,
+        "cashflow": reports.daily_series,
+    }
+
+    def get(self, request, kind):
+        business = get_business_or_403(request)
+        builder = self.builders.get(kind)
+        if builder is None:
+            return Response({"detail": "Unknown report"}, status=404)
+        try:
+            start, end = reports.parse_range(request.query_params)
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=400)
+        return Response(builder(business, start, end))

@@ -25,7 +25,13 @@ in each app) so future WhatsApp/USSD/SMS channels reuse it.
 
 ## Dashboard
 - `GET /api/dashboard/?business=<id>` →
-  `{today_sales, month_profit, cash_position, receivables, next_tax:{type,amount,due_date}, compliance_score, open_leads, top_insights:[...]}`
+  `{today_sales, month_profit, cash_position, receivables, next_tax:{type,amount,due_date}|null, compliance_score, open_leads, top_insights:[...], sales_trend:{labels:[YYYY-MM-DD×14], values:[…]}}`
+
+## Reports (sales app) — `?from=YYYY-MM-DD&to=YYYY-MM-DD` (default: last 30 days)
+- `GET /api/reports/pnl/` → `{from, to, sales, cogs, gross_profit, expenses, net_profit, gross_margin}` (sales net of VAT, less credit notes)
+- `GET /api/reports/sales-by-product/` / `sales-by-customer/` / `expenses-by-category/` → `[{label, value}]`
+- `GET /api/reports/cashflow/` → `{labels, cash_in, cash_out, values}` (per day; values = net)
+- Links opened in a new tab (PDF/CSV) may pass `?business=<id>` instead of `X-Business-Id`
 
 ## Customers
 - `GET/POST /api/customers/` — fields: `id, name, phone, email, address, tin, vat_number, notes`
@@ -88,13 +94,18 @@ in each app) so future WhatsApp/USSD/SMS channels reuse it.
 - `POST /api/advisor/insights/<id>/dismiss/` / `…/done/`
 
 ## Security check (advisor app: SecurityAssessment)
-- `GET /api/security/questions/` — 12 questions w/ options+weights
-- `POST /api/security/assessment/` `{answers:{qid: choice}}` → `{score, fixes:[{priority, action}]}`
+- `GET /api/security/questions/` — 12 questions `{id, q, topic, topic_label, options:[{v, t, w}]}`
+- `POST /api/security/assessment/` `{answers:{qid: v}}` → instant, deterministic
+  `{score, band, fixes:[{question_id, topic, topic_label, priority:high|medium, action, why, question}], strengths, unanswered, lessons:[…], coaching, ai_generated:false}`
+- `GET /api/security/assessment/` → latest assessment (same shape + `taken_at`), or 204 if none
+- `POST /api/security/coaching/` `{answers}` → `{coaching, ai_generated}` — Gemma coaching note from the computed facts (slow; template fallback)
+- `POST /api/security/coach/` `{question}` → `{answer, ai_generated, related:[lesson]}` — security/fraud Q&A, scoped; lesson fallback
+- `GET /api/security/lessons/` → `[{id, topic, topic_label, title, body, steps:[…]}]` — practice library
 - `GET /api/security/templates/consent-notice|data-policy/` → downloadable text (marked "for guidance, not legal advice")
 
 ## Loan readiness (advisor app)
-- `GET /api/loan/health/` → `{score, components:{data_completeness, fiscalisation_consistency, sales_stability, compliance}, band}`
-- `GET/POST /api/loan/consent/` — `{id, lender, data_scope, granted_at, expires_at, revoked_at}`
+- `GET /api/loan/health/` → `{score, band, components:{data_completeness, fiscalisation_consistency, sales_stability, compliance} (each 0-100), weights, note}` — score = weighted average of components
+- `GET /api/loan/consent/` → `[{id, lender, scope:[…], granted_at, expires_at, revoked_at}]`; `POST` `{lender, data_scope:[…], expires_at}`; `POST /api/loan/consent/<id>/revoke/`
 
 ## Notifications (notifications app)
 - `GET /api/notifications/` — `[{id, kind, title, body, read, created_at}]`

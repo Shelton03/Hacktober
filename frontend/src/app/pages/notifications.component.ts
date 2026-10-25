@@ -1,135 +1,217 @@
-import { Component, signal, computed } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
-import { api } from '../core/api';
+import { Router } from '@angular/router';
+import { api, asList } from '../core/api';
 import type { AppNotification, NotificationSettings } from '../core/models';
+import { IconComponent } from '../shared/icon.component';
+import { AgoPipe } from '../shared/format';
+import { ToastService } from '../shared/toast.service';
+
+const KIND_ICON: Record<string, string> = {
+  overdue_invoice: 'invoice',
+  low_stock: 'package',
+  lead_followup: 'target',
+  tax_due: 'landmark',
+  fiscal: 'printer',
+};
+
+type Toggle = 'tax_reminders' | 'invoice_reminders' | 'lead_reminders' | 'stock_alerts' | 'advisor_digest';
 
 @Component({
   selector: 'app-notifications',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule, IconComponent, AgoPipe],
   template: `
     <div class="page">
       <div class="page-head">
         <div>
           <h1>Notifications</h1>
-          <p class="sub">Reminders and alerts — in-app and email</p>
+          <p class="sub">Reminders and alerts about your business.</p>
         </div>
+        @if (unread() > 0) {
+          <button class="btn ghost" (click)="markAll()"><app-icon name="check" [size]="16" /> Mark all read</button>
+        }
       </div>
 
-      @if (error()) {
-        <div class="alert error">{{ error() }}</div>
-      }
-
-      <div class="grid cols-2">
-        <div>
-          <h2>Recent</h2>
-          <div class="table-wrap">
-            <table class="list">
-              <thead><tr><th>Title</th><th>Body</th><th>When</th><th></th></tr></thead>
-              <tbody>
-                @for (n of notifications(); track n.id) {
-                  <tr [class.unread-row]="!n.read">
-                    <td><b>{{ n.title }}</b></td>
-                    <td>{{ n.body }}</td>
-                    <td>{{ n.created_at | date: 'd MMM, HH:mm' }}</td>
-                    <td>
-                      @if (!n.read) {
-                        <button class="btn ghost small" (click)="markRead(n)">Mark read</button>
-                      }
-                    </td>
-                  </tr>
-                } @empty {
-                  <tr><td colspan="4" class="empty">Nothing yet</td></tr>
-                }
-              </tbody>
-            </table>
-          </div>
+      <div class="split">
+        <div class="card flush">
+          @for (n of notifications(); track n.id) {
+            <button class="n-row" [class.unread]="!n.read" (click)="open(n)">
+              <span class="n-ico"><app-icon [name]="icon(n.kind)" [size]="17" /></span>
+              <span style="flex:1;min-width:0">
+                <b>{{ n.title }}</b>
+                <small>{{ n.body }}</small>
+              </span>
+              <span class="when">{{ n.created_at | ago }}</span>
+            </button>
+          } @empty {
+            <div class="empty"><app-icon name="bell" [size]="28" [stroke]="1.5" /><p>No notifications yet</p></div>
+          }
         </div>
 
-        <div class="card">
-          <h2>Settings</h2>
-          <label class="checkbox">
-            <input type="checkbox" [(ngModel)]="settings().channels.email" name="chEmail"
-              (ngModelChange)="save()" />
-            Email notifications
-          </label>
-          <label class="checkbox" style="margin-top:6px">
-            <input type="checkbox" [(ngModel)]="settings().channels.in_app" name="chApp"
-              (ngModelChange)="save()" />
-            In-app notifications
-          </label>
-          <label class="checkbox" style="margin-top:6px">
-            <input type="checkbox" [(ngModel)]="settings().tax_reminders" name="chTax"
-              (ngModelChange)="save()" />
-            Tax reminders
-          </label>
-          <div class="form-row" style="margin-top:10px">
-            <div>
-              <label class="field">Quiet hours start</label>
-              <input type="time" [(ngModel)]="settings().quiet_hours.start" name="qs"
-                (ngModelChange)="save()" />
-            </div>
-            <div>
-              <label class="field">Quiet hours end</label>
-              <input type="time" [(ngModel)]="settings().quiet_hours.end" name="qe"
-                (ngModelChange)="save()" />
+        @if (settings(); as s) {
+          <div class="card">
+            <h2>Preferences</h2>
+            <p class="eyebrow" style="margin-top:16px">Channels</p>
+            <label class="switch">In-app <input type="checkbox" [(ngModel)]="s.channels.in_app" (ngModelChange)="save()" /></label>
+            <label class="switch">Email <input type="checkbox" [(ngModel)]="s.channels.email" (ngModelChange)="save()" /></label>
+            <label class="switch">SMS <span class="badge slate">soon</span><span class="spacer"></span><input type="checkbox" disabled [checked]="s.channels.sms" /></label>
+            <label class="switch">WhatsApp <span class="badge slate">soon</span><span class="spacer"></span><input type="checkbox" disabled [checked]="s.channels.whatsapp" /></label>
+
+            <p class="eyebrow" style="margin-top:16px">Remind me about</p>
+            @for (t of toggles; track t.key) {
+              <label class="switch">{{ t.label }} <input type="checkbox" [(ngModel)]="s[t.key]" (ngModelChange)="save()" /></label>
+            }
+
+            <p class="eyebrow" style="margin-top:16px">Quiet hours</p>
+            <div class="form-row">
+              <div>
+                <label class="field" for="qs">From</label>
+                <input id="qs" type="time" [(ngModel)]="s.quiet_start" (change)="save()" />
+              </div>
+              <div>
+                <label class="field" for="qe">Until</label>
+                <input id="qe" type="time" [(ngModel)]="s.quiet_end" (change)="save()" />
+              </div>
             </div>
           </div>
-        </div>
+        }
       </div>
     </div>
   `,
   styles: [
     `
-      .unread-row td:first-child {
-        border-left: 3px solid #0f766e;
+      .n-row {
+        display: flex;
+        gap: 14px;
+        align-items: flex-start;
+        width: 100%;
+        text-align: left;
+        padding: 14px 20px;
+        border: none;
+        border-bottom: 1px solid var(--border);
+        background: none;
+        color: var(--text);
+        font: inherit;
+        cursor: pointer;
+      }
+      .n-row:last-child {
+        border-bottom: none;
+      }
+      .n-row:hover {
+        background: var(--surface-hover);
+      }
+      .n-row b {
+        display: block;
+        font-size: 0.9rem;
+        font-weight: 600;
+      }
+      .n-row small {
+        display: block;
+        color: var(--text-2);
+        font-size: 0.84rem;
+      }
+      .n-row.unread {
+        background: color-mix(in srgb, var(--primary-soft) 45%, transparent);
+      }
+      .n-ico {
+        width: 36px;
+        height: 36px;
+        border-radius: 99px;
+        display: grid;
+        place-items: center;
+        background: var(--surface-hover);
+        color: var(--text-2);
+        flex: none;
+      }
+      .unread .n-ico {
+        background: var(--primary-soft);
+        color: var(--primary-ink);
+      }
+      .when {
+        font-size: 0.75rem;
+        color: var(--text-3);
+        white-space: nowrap;
+      }
+      .switch {
+        border-bottom: 1px solid var(--border);
+      }
+      .switch .spacer {
+        flex: 1;
       }
     `,
   ],
 })
-export class NotificationsComponent {
+export class NotificationsComponent implements OnInit {
+  private toast = inject(ToastService);
+  private router = inject(Router);
+  readonly toggles: { key: Toggle; label: string }[] = [
+    { key: 'tax_reminders', label: 'Tax deadlines' },
+    { key: 'invoice_reminders', label: 'Overdue invoices' },
+    { key: 'lead_reminders', label: 'Lead follow-ups' },
+    { key: 'stock_alerts', label: 'Low stock' },
+    { key: 'advisor_digest', label: 'Advisor digest' },
+  ];
+
   notifications = signal<AppNotification[]>([]);
-  settings = signal<NotificationSettings>({
-    channels: { email: true, in_app: true },
-    quiet_hours: { start: '21:00', end: '07:00' },
-    tax_reminders: true,
-  });
-  error = signal('');
+  settings = signal<NotificationSettings | null>(null);
+  unread = computed(() => this.notifications().filter((n) => !n.read).length);
+  private saveTimer: ReturnType<typeof setTimeout> | null = null;
 
   ngOnInit(): void {
     this.load();
   }
 
+  icon(kind: string): string {
+    return KIND_ICON[kind] ?? 'bell';
+  }
+
   async load(): Promise<void> {
     try {
       const [list, s] = await Promise.all([
-        api.get<AppNotification[]>('/notifications/'),
+        api.get('/notifications/'),
         api.get<NotificationSettings>('/notifications/settings/').catch(() => null),
       ]);
-      this.notifications.set(Array.isArray(list) ? list : (list as any).results ?? []);
-      if (s) this.settings.set({ ...this.settings(), ...s });
+      this.notifications.set(asList<AppNotification>(list));
+      if (s) this.settings.set(s);
     } catch (e: any) {
-      this.error.set(e?.message || 'Failed to load notifications');
+      this.toast.error(e?.message || 'Failed to load notifications');
     }
   }
 
-  async markRead(n: AppNotification): Promise<void> {
+  private async markRead(n: AppNotification): Promise<void> {
+    if (n.read) return;
+    await api.post(`/notifications/${n.id}/read/`);
+    this.notifications.update((l) => l.map((x) => (x.id === n.id ? { ...x, read: true } : x)));
+  }
+
+  async open(n: AppNotification): Promise<void> {
     try {
-      await api.post(`/notifications/${n.id}/read/`);
-      n.read = true;
-      this.notifications.set([...this.notifications()]);
+      await this.markRead(n);
+    } catch {
+      /* still navigate */
+    }
+    if (n.link) this.router.navigateByUrl(n.link);
+  }
+
+  async markAll(): Promise<void> {
+    try {
+      await Promise.all(this.notifications().map((n) => this.markRead(n)));
     } catch (e: any) {
-      this.error.set(e?.message || 'Failed');
+      this.toast.error(e?.message || 'Failed');
     }
   }
 
-  async save(): Promise<void> {
-    try {
-      await api.post('/notifications/settings/', this.settings());
-    } catch (e: any) {
-      this.error.set(e?.message || 'Save failed');
-    }
+  /** debounce so toggling several switches sends one request */
+  save(): void {
+    if (this.saveTimer) clearTimeout(this.saveTimer);
+    this.saveTimer = setTimeout(async () => {
+      try {
+        await api.post('/notifications/settings/', this.settings());
+        this.toast.success('Preferences saved');
+      } catch (e: any) {
+        this.toast.error(e?.message || 'Save failed');
+      }
+    }, 500);
   }
 }

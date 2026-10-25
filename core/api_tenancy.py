@@ -14,7 +14,8 @@ def business_from_request(request) -> "object | None":
     if user is None or not user.is_authenticated:
         return None
 
-    header_id = request.headers.get("X-Business-Id")
+    # header from fetch(); ?business= for links opened in a new tab (PDF/CSV)
+    header_id = request.headers.get("X-Business-Id") or request.GET.get("business")
     if header_id:
         try:
             header_id = int(header_id)

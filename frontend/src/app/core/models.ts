@@ -39,7 +39,9 @@ export interface Insight {
   recommended_action: string;
   severity: 'info' | 'warning' | 'critical';
   status: 'active' | 'dismissed' | 'done';
-  llm_phrased?: string | null;
+  /** true when the explanation was re-phrased by the LLM */
+  llm_phrased?: boolean;
+  created_at?: string;
 }
 
 export interface Dashboard {
@@ -48,9 +50,10 @@ export interface Dashboard {
   cash_position: string;
   receivables: string;
   next_tax: NextTax | null;
-  compliance_score: number;
+  compliance_score: number | null;
   open_leads: number;
   top_insights: Insight[];
+  sales_trend?: { labels: string[]; values: number[] };
   currency?: Currency;
 }
 
@@ -111,39 +114,48 @@ export interface QuickSaleInput {
 
 export interface FiscalReceiptInfo {
   receipt_id: string;
-  global_no: string;
+  global_no: string | number;
+  counter?: number;
   qr_url: string;
   fiscal_day_no: number;
+  sync_status?: 'synced' | 'pending';
+}
+
+export interface SaleLine {
+  id?: number;
+  product: number | null;
+  name: string;
+  qty: string;
+  unit_price: string;
+  tax_type: TaxType;
+  tax_percent?: string;
+  line_total: string;
 }
 
 export interface Sale {
   id: number;
+  doc_type?: string;
+  status?: string;
   date: string;
   customer: number | string | null;
-  customer_name?: string;
+  customer_name?: string | null;
+  subtotal?: string;
+  tax_total?: string;
   total: string;
   currency: Currency;
-  receipt_status: string;
-  sync_status?: 'synced' | 'pending';
+  receipt_status?: string;
   receipt?: FiscalReceiptInfo | null;
+  lines?: SaleLine[];
+  payments?: { id: number; method: PaymentMethod; amount: string; date: string }[];
   share?: { wa_link: string; pdf_url: string } | null;
 }
 
 export type InvoiceStatus = 'draft' | 'sent' | 'part_paid' | 'paid' | 'overdue';
 
-export interface Invoice {
-  id: number;
-  customer: number;
-  customer_name?: string;
-  number?: string;
-  date: string;
-  due_date: string;
-  total: string;
-  amount_paid?: string;
+export interface Invoice extends Omit<Sale, 'status'> {
   status: InvoiceStatus;
-  currency: Currency;
+  due_date: string;
   notes?: string;
-  lines?: SaleLineInput[];
   wa_link?: string;
 }
 
@@ -206,20 +218,28 @@ export interface FiscalDevice {
 }
 
 export interface FiscalStatus {
-  day_open: boolean;
-  fiscal_day_no?: number;
-  counters?: Record<string, string | number>;
+  has_device: boolean;
+  status_ok?: boolean;
+  device?: { device_id: string; serial_no: string; model_name: string; mode: string };
+  certificate_valid_till?: string | null;
+  day?: {
+    open: boolean;
+    fiscal_day_no?: number;
+    last_receipt_counter?: number;
+    yesterday_closed?: boolean;
+  };
   [k: string]: unknown;
 }
 
 export interface FiscalReceiptRow {
   id: number;
+  sale: number;
   receipt_id: string;
-  global_no: string;
+  global_no: string | number;
+  counter?: number;
   sync_status: 'synced' | 'pending';
-  date?: string;
-  total?: string;
-  currency?: Currency;
+  qr_url?: string;
+  invoice_no?: string;
 }
 
 // ---------- Tax & compliance ----------
@@ -228,10 +248,14 @@ export interface TaxConfig {
 }
 
 export interface VatSummary {
+  period?: string;
   output_vat: string;
   input_vat: string;
   vat_payable: string;
   due_date: string;
+  fiscalised_sales?: number;
+  validated_purchases?: number;
+  disclaimer?: string;
 }
 
 export interface QpdRow {
@@ -253,6 +277,7 @@ export interface ComplianceIssue {
 export interface ComplianceResponse {
   score: number;
   issues: ComplianceIssue[];
+  disclaimer?: string;
 }
 
 // ---------- Leads ----------
@@ -272,8 +297,11 @@ export interface Lead {
 }
 
 export interface LeadsReport {
-  conversion_rate: string;
-  by_source: { source: LeadSource; count: number; won: number; value: string }[];
+  conversion_rate: number;
+  total_leads?: number;
+  won?: number;
+  by_source: { source: LeadSource; label?: string; count: number; won: number; value: string }[];
+  followups_due?: Lead[];
 }
 
 // ---------- Advisor ----------
@@ -281,19 +309,49 @@ export interface AdvisorInsight extends Insight {}
 
 // ---------- Security ----------
 export interface SecurityQuestion {
-  id: number;
-  question: string;
-  options: { key: string; label: string; weight: number }[];
+  id: string;
+  q: string;
+  topic: string;
+  topic_label: string;
+  /** v = value sent back, t = label, w = weight */
+  options: { v: string; t: string; w: number }[];
 }
 
 export interface SecurityFix {
-  priority: number;
+  question_id: string;
+  topic: string;
+  topic_label: string;
+  priority: 'high' | 'medium';
   action: string;
+  why: string;
+  question: string;
+}
+
+export interface SecurityLesson {
+  id: string;
+  topic: string;
+  topic_label: string;
+  title: string;
+  body: string;
+  steps: string[];
 }
 
 export interface SecurityAssessment {
   score: number;
+  band: 'strong' | 'fair' | 'weak';
   fixes: SecurityFix[];
+  strengths: string[];
+  unanswered: number;
+  lessons: SecurityLesson[];
+  coaching: string;
+  ai_generated: boolean;
+  taken_at?: string;
+}
+
+export interface CoachAnswer {
+  answer: string;
+  ai_generated: boolean;
+  related: SecurityLesson[];
 }
 
 // ---------- Loan readiness ----------
@@ -306,12 +364,14 @@ export interface LoanHealth {
     compliance: number;
   };
   band: string;
+  weights?: Record<keyof LoanHealth['components'], number>;
+  note?: string;
 }
 
 export interface LoanConsent {
   id: number;
   lender: string;
-  data_scope: string;
+  scope: string[];
   granted_at: string | null;
   expires_at: string | null;
   revoked_at: string | null;
@@ -324,58 +384,62 @@ export interface AppNotification {
   title: string;
   body: string;
   read: boolean;
+  link?: string;
   created_at: string;
 }
 
 export interface NotificationSettings {
-  channels: { email: boolean; in_app: boolean };
-  quiet_hours: { start: string; end: string };
+  channels: { in_app: boolean; email: boolean; sms?: boolean; whatsapp?: boolean };
+  quiet_start: string | null;
+  quiet_end: string | null;
   tax_reminders: boolean;
-  [k: string]: unknown;
+  invoice_reminders: boolean;
+  lead_reminders: boolean;
+  stock_alerts: boolean;
+  advisor_digest: boolean;
 }
 
-// ---------- Lender demo ----------
+// ---------- Lender demo (every payload is wrapped: {banner, count, <list>}) ----------
+export type RiskBand = 'A' | 'B' | 'C' | 'D' | 'E';
+
 export interface LenderSme {
   id: number;
-  name?: string;
+  ref_id: string;
+  name: string;
   sector: string;
   location: string;
   health_score: number;
-  risk_band: 'A' | 'B' | 'C' | 'D' | 'E';
+  risk_band: RiskBand;
   revenue_trend: number[];
+  consent_status: string;
 }
 
-export interface LenderSmeDetail {
-  id: number;
-  name?: string;
-  health_score: number;
-  risk_band: string;
-  verified_sales?: { labels: string[]; values: number[] };
-  compliance_history?: { labels: string[]; values: number[] };
-  credit_score?: number;
-  credit_reasons?: string[];
-  consent_status?: string;
-  sector?: string;
-  location?: string;
-  [k: string]: unknown;
+export interface LenderSmeDetail extends LenderSme {
+  verified_sales_trend: number[];
+  compliance_history: { month: string; score: number }[];
+  credit_score: number;
+  credit_reasons: string[];
 }
 
 export interface FraudAlert {
   id: number;
+  sme: { id: number; name: string };
+  kind: string;
   severity: 'info' | 'warning' | 'critical';
   explanation: string;
   suggested_action: string;
-  title?: string;
-  sme?: string | number;
-  created_at?: string;
+  detected_at: string;
 }
+
+export type LenderDecision = 'recommend' | 'review' | 'decline';
 
 export interface LenderApplication {
   id: number;
-  sme: string | number;
+  sme: { id: number; ref_id: string; name: string; risk_band: RiskBand };
   amount: string;
-  status: string;
-  recommend?: string;
-  reasons?: string[];
-  [k: string]: unknown;
+  currency: Currency;
+  purpose: string;
+  suggested: LenderDecision;
+  reasons: string[];
+  submitted_at: string;
 }

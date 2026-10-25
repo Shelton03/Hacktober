@@ -64,14 +64,59 @@ class SecurityQuestionsView(APIView):
 class SecurityAssessmentView(APIView):
     permission_classes = [IsAuthenticated]
 
+    def get(self, request):
+        """Latest assessment for this business, re-evaluated (no AI call)."""
+        business = get_business_or_403(request)
+        last = SecurityAssessment.objects.filter(business=business).order_by("-created_at").first()
+        if not last:
+            return Response(status=204)
+        result = services.score_security(last.answers, use_llm=False)
+        result["taken_at"] = last.created_at.isoformat()
+        return Response(result)
+
     def post(self, request):
         business = get_business_or_403(request)
         answers = request.data.get("answers", {})
-        result = services.score_security(answers)
+        # instant deterministic result; the AI note comes from /security/coaching/
+        result = services.score_security(answers, use_llm=False)
         SecurityAssessment.objects.create(
             business=business, user=request.user, answers=answers,
             score=result["score"], fixes=result["fixes"])
         return Response(result)
+
+
+class SecurityLessonsView(APIView):
+    """GET /api/security/lessons/ — the security practice library."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from advisor import security
+
+        return Response(security.all_lessons())
+
+
+class SecurityCoachingView(APIView):
+    """POST /api/security/coaching/ {answers} → {coaching, ai_generated} (slow: LLM)."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        get_business_or_403(request)
+        from advisor import security
+
+        result = security.evaluate(request.data.get("answers", {}))
+        text, ai = security.coaching(result)
+        return Response({"coaching": text, "ai_generated": ai})
+
+
+class SecurityCoachView(APIView):
+    """POST /api/security/coach/ {question} → {answer, ai_generated, related}"""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        get_business_or_403(request)  # membership check only
+        from advisor import security
+
+        return Response(security.ask_coach(str(request.data.get("question", ""))))
 
 
 class SecurityTemplateView(APIView):

@@ -197,12 +197,12 @@ SME_NAMES = [
 ]
 
 POSITIVE_REASONS = [
-    "6 months of FDMS-verified sales — steady daily takings",
+    "6 months of FDMS-verified sales with steady daily takings",
     "No missed VAT filings in the last 4 periods",
     "Revenue trend up 12% over the sampled months",
-    "High data completeness — products, customers and receipts all captured",
+    "High data completeness: products, customers and receipts all captured",
     "Compliance score consistently above 85",
-    "Cash-heavy sector — deposits align with declared takings",
+    "Cash-heavy sector; deposits align with declared takings",
     "Buyer TINs captured on most fiscal invoices",
     "Recent stock purchases match declared sales growth",
     "Low expenses-to-revenue ratio this period",
@@ -215,7 +215,7 @@ NEGATIVE_REASONS = [
     "Revenue dips in two of the sampled months",
     "Declared sales diverge from fiscalised totals",
     "Compliance issues outstanding from last scan",
-    "Thin trading history — only 5 months sampled",
+    "Thin trading history: only 5 months sampled",
 ]
 
 FRAUD_KINDS = [
@@ -235,7 +235,7 @@ FRAUD_KINDS = [
      "Three rapid in-out transactions (received and forwarded within minutes) in one day.",
      "Request bank statements and an explanation of the transaction purpose."),
     ("sim_swap_account_takeover", "critical",
-     "SIM swap detected 6 hours before the loan request — classic account-takeover pattern.",
+     "SIM swap detected 6 hours before the loan request, a classic account-takeover pattern.",
      "Free the application and verify identity at a branch."),
 ]
 
@@ -908,7 +908,7 @@ class Command(BaseCommand):
                 rows.append(Expense(
                     business=business,
                     category=cat,
-                    description=(f"{cat.replace('_', ' ').title()} — "
+                    description=(f"{cat.replace('_', ' ').title()}, "
                                  f"{month_date.strftime('%B %Y')}"),
                     amount=D(random.uniform(lo, hi)),
                     currency="USD",
@@ -947,7 +947,7 @@ class Command(BaseCommand):
                 supplier=random.choice(suppliers),
                 supplier_invoice_no=f"SI-{random.randint(1000, 9999)}",
                 fiscal_invoice_no=fiscal_no,
-                description=f"Stock purchase — {random.choice(suppliers).name}",
+                description=f"Stock purchase from {random.choice(suppliers).name}",
                 amount=amount,
                 vat_amount=D(amount * VAT_RATE / Decimal(100)),
                 currency="USD",
@@ -1021,7 +1021,7 @@ class Command(BaseCommand):
                     actor=random.choice(members) if members else None,
                     kind=random.choice(["note", "call", "whatsapp", "meeting"]),
                     note=random.choice([
-                        "Called — asked for a quote on WhatsApp",
+                        "Called; asked for a quote on WhatsApp",
                         "Walked in, browsed products, took a flyer",
                         "Meeting booked for next week Tuesday",
                         "Referred by an existing customer",
@@ -1050,7 +1050,7 @@ class Command(BaseCommand):
             Notification(
                 business=business, user=owner, kind="lead_followup",
                 title="Lead follow-ups due today",
-                body="You have leads waiting for a follow-up — check the Leads pipeline.",
+                body="You have leads waiting for a follow-up. Check the Leads pipeline.",
                 link="/leads", is_read=False,
             ),
             Notification(
@@ -1066,8 +1066,8 @@ class Command(BaseCommand):
             rows.append(Notification(
                 business=business, user=owner, kind="overdue_invoice",
                 title=f"{overdue} invoice(s) overdue",
-                body="Overdue invoices are affecting your receivables — "
-                     "send a WhatsApp reminder.",
+                body="Overdue invoices are affecting your receivables. "
+                     "Send a WhatsApp reminder.",
                 link="/invoices", is_read=True,
             ))
         Notification.objects.bulk_create(rows)
@@ -1137,7 +1137,7 @@ class Command(BaseCommand):
                 "margin_snapshot", "info",
                 "Profit margin this month",
                 f"Over the last 30 days you booked {revenue:,.2f} USD in net sales "
-                f"against {spend:,.2f} USD in expenses — a margin of "
+                f"against {spend:,.2f} USD in expenses, a margin of "
                 f"{margin.quantize(Decimal('1')):,.0f}%.",
                 "Keep recording expenses daily so this margin stays accurate.",
             ))
